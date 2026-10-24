@@ -1,5 +1,7 @@
 # Serverless Data Pipeline & Security Compliance Engine
 
+[![CI](https://github.com/dsgnbyalexx/serverless-data-pipeline-security-automation/actions/workflows/ci.yml/badge.svg)](https://github.com/dsgnbyalexx/serverless-data-pipeline-security-automation/actions/workflows/ci.yml)
+
 > An event-driven AWS pipeline (S3 → SQS → Lambda → DynamoDB, with dead-letter
 > handling) plus a Python compliance scanner that detects risky configurations and
 > proposes fixes in **dry-run mode by default**.
@@ -19,7 +21,7 @@
 | 49 automated tests, 96% line coverage, lint clean | ✅ Passing locally | [tests.txt](docs/evidence/tests.txt) |
 | Terraform (S3, SQS + DLQ, 2 Lambdas, DynamoDB, EventBridge, alarms), statically validated, **not deployed** | ✅ Validated | [terraform-validate.txt](docs/evidence/terraform-validate.txt) |
 | IaC security scan (Trivy): 0 unaccepted HIGH/CRITICAL findings | ✅ Scanned | [trivy-scan.txt](docs/evidence/trivy-scan.txt), [triage](#security-scan-triage) |
-| GitHub Actions CI | ⏳ Planned | — |
+| GitHub Actions CI (lint, 49 tests, compliance demo, Terraform validate + Trivy) | ✅ Passing on GitHub | [run 40048184180](https://github.com/dsgnbyalexx/serverless-data-pipeline-security-automation/actions/runs/40048184180), [all runs](https://github.com/dsgnbyalexx/serverless-data-pipeline-security-automation/actions/workflows/ci.yml) |
 | Real AWS deployment + AWS Config rules | 🗺️ Future | — |
 
 **Legend:** ✅ implemented & verified · 🧪 simulated locally · ⏳ planned for this phase · 🗺️ future enhancement

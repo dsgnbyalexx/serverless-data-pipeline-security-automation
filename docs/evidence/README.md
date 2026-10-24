@@ -99,6 +99,17 @@ deployment.
 
 ---
 
+## 2026-10-24: CI pipeline
+
+The workflow passes actionlint 1.7.12. Both jobs were replayed locally in Linux containers
+from a clean copy (`python:3.14` and `hashicorp/terraform:1.16.6`) and passed before publishing.
+
+**First GitHub Actions run:**
+[run 40048184180](https://github.com/dsgnbyalexx/serverless-data-pipeline-security-automation/actions/runs/40048184180).
+Both jobs passed: python 40 s, terraform 27 s, as reported by GitHub.
+
+---
+
 ### What these tests do NOT prove
 
 - moto does not run Lambda's SQS event source mapping. [`tests/sqs_driver.py`](../../tests/sqs_driver.py)
