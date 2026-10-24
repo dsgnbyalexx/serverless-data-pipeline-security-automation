@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars (git-ignored) before a real deployment:
+#   cp terraform.tfvars.example terraform.tfvars
+
+region      = "us-east-1"
+environment = "dev"
+
+# Receive alarm emails (AWS sends a confirmation link first).
+alarm_email = "you@example.com"

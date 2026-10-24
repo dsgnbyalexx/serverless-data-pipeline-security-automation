@@ -1,0 +1,23 @@
+# Trivy 0.76.1 IaC scan of terraform/ (static). Triage: README 'Security scan triage'.
+
+compliance.tf (terraform)
+Tests: 2 (SUCCESSES: 0, FAILURES: 2)
+Failures: 2 (UNKNOWN: 0, LOW: 2, MEDIUM: 0, HIGH: 0, CRITICAL: 0)
+AWS-0017 (LOW): Log group is not encrypted.
+AWS-0066 (LOW): Function does not have tracing enabled.
+database.tf (terraform)
+Tests: 1 (SUCCESSES: 0, FAILURES: 1)
+Failures: 1 (UNKNOWN: 0, LOW: 1, MEDIUM: 0, HIGH: 0, CRITICAL: 0)
+AWS-0025 (LOW): Table encryption explicitly uses the default KMS key.
+ingest.tf (terraform)
+Tests: 2 (SUCCESSES: 0, FAILURES: 2)
+Failures: 2 (UNKNOWN: 0, LOW: 2, MEDIUM: 0, HIGH: 0, CRITICAL: 0)
+AWS-0017 (LOW): Log group is not encrypted.
+AWS-0066 (LOW): Function does not have tracing enabled.
+storage.tf (terraform)
+Tests: 1 (SUCCESSES: 0, FAILURES: 1)
+Failures: 1 (UNKNOWN: 0, LOW: 1, MEDIUM: 0, HIGH: 0, CRITICAL: 0)
+AWS-0089 (LOW): Bucket has logging disabled
+
+$ trivy config --severity HIGH,CRITICAL --exit-code 1 terraform/
+exit code: 0 (0 = no unaccepted HIGH/CRITICAL findings)

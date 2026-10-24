@@ -17,7 +17,8 @@
 | Compliance scanner: 6 rules across S3, EC2 and IAM | 🧪 Implemented, tested against simulated AWS | [demo output](docs/evidence/compliance-demo.txt) |
 | Guarded remediation: dry run by default, opt-in tags, allowlist | 🧪 Tested, including a negative-control experiment | [evidence log](docs/evidence/README.md#2026-10-24-compliance-scanner) |
 | 49 automated tests, 96% line coverage, lint clean | ✅ Passing locally | [tests.txt](docs/evidence/tests.txt) |
-| Terraform (S3, SQS, Lambda, DynamoDB, alarms), validated but not deployed | ⏳ Planned | — |
+| Terraform (S3, SQS + DLQ, 2 Lambdas, DynamoDB, EventBridge, alarms), statically validated, **not deployed** | ✅ Validated | [terraform-validate.txt](docs/evidence/terraform-validate.txt) |
+| IaC security scan (Trivy): 0 unaccepted HIGH/CRITICAL findings | ✅ Scanned | [trivy-scan.txt](docs/evidence/trivy-scan.txt), [triage](#security-scan-triage) |
 | GitHub Actions CI | ⏳ Planned | — |
 | Real AWS deployment + AWS Config rules | 🗺️ Future | — |
 
@@ -93,6 +94,90 @@ The CLI needs `PYTHONPATH=src` when run from the repository root (`set PYTHONPAT
 Windows cmd, `$env:PYTHONPATH="src"` in PowerShell). Against a real account it uses your
 normal AWS CLI credentials and needs read-only permissions for `scan`.
 
+## AWS infrastructure (designed and validated, not deployed)
+
+[`terraform/`](terraform/) defines the whole stack. It passes `terraform validate` and a Trivy
+scan, but it has **not been applied to AWS**.
+
+```mermaid
+flowchart LR
+    subgraph aws["AWS (Terraform, not deployed)"]
+      s3[("S3 incoming bucket<br/>private, HTTPS-only, versioned")]
+      q["SQS ingest queue<br/>encrypted, visibility 6x timeout"]
+      dlq["SQS dead-letter queue<br/>14-day retention"]
+      ing["Lambda: ingest<br/>python3.14, arm64<br/>max concurrency 2"]
+      ddb[("DynamoDB<br/>on-demand, PITR")]
+      eb["EventBridge<br/>daily schedule"]
+      comp["Lambda: compliance<br/>READ-ONLY role"]
+      cw["CloudWatch<br/>logs, metrics, 6 alarms"]
+      sns["SNS alarm topic<br/>(optional email)"]
+    end
+    s3 -- "ObjectCreated (incoming/)" --> q
+    q -- "batches of 10" --> ing
+    q -- "after 3 failures" --> dlq
+    ing --> ddb
+    eb --> comp
+    ing --> cw
+    comp --> cw
+    cw --> sns
+```
+
+| File | Creates |
+|---|---|
+| `storage.tf` | Bucket with Block Public Access, owner-enforced (no ACLs), encryption, versioning, HTTPS-only policy, 30-day expiry, and the S3 → SQS notification |
+| `queue.tf` | Queue + DLQ, redrive after 3 attempts, and a queue policy that lets **only this bucket in this account** send messages |
+| `database.tf` | On-demand table with point-in-time recovery |
+| `ingest.tf` | Ingest Lambda, least-privilege role, and the SQS trigger with partial batch responses and capped concurrency |
+| `compliance.tf` | Scanner Lambda with a **read-only** role and its daily EventBridge schedule |
+| `monitoring.tf` | Alarms: DLQ not empty, backlog > 15 min, failed messages, function errors, HIGH/CRITICAL findings |
+
+### Security design
+
+- **Each function has its own IAM role** with only the actions its code calls, scoped to
+  specific resources where AWS allows it.
+- **The compliance role is read-only.** The code never applies fixes from Lambda, and the
+  permissions make it impossible anyway (defense in depth).
+- The bucket meets the same rules the scanner enforces (S3-001, S3-002, S3-003).
+- **`s3:ListBucket` on `incoming/` is deliberate:** without it, S3 returns `AccessDenied`
+  instead of `NoSuchKey` for a deleted file, and the handler would retry it into the DLQ.
+
+### Security scan triage
+
+Trivy 0.76.1 ([raw output](docs/evidence/trivy-scan.txt)). CI fails on any HIGH or CRITICAL
+finding that is not accepted below.
+
+| Finding | Severity | Decision | Reason |
+|---|---|---|---|
+| AWS-0132: S3 not using a customer-managed KMS key | HIGH | Accepted (inline `trivy:ignore`) | Encrypted at rest with SSE-S3. A KMS key adds cost and key-policy work; justified for regulated data, not demo files |
+| AWS-0095: SNS topic not encrypted | HIGH | Accepted (inline) | CloudWatch alarms cannot publish to a topic using the AWS-managed SNS key. Messages hold alarm metadata only |
+| AWS-0017 / AWS-0025: logs and DynamoDB use AWS-managed keys | LOW | Accepted | Encrypted at rest; customer keys add cost |
+| AWS-0066: no X-Ray tracing | LOW | Future | JSON logs + EMF metrics cover this stage |
+| AWS-0089: no S3 access logging | LOW | Future | Needs a separate log bucket |
+
+### Cost (ESTIMATE, not billing data)
+
+Serverless resources cost almost nothing while idle, unlike Project 1's NAT gateway and
+load balancer. Approximate us-east-1 list prices; **check the
+[AWS Pricing Calculator](https://calculator.aws/) before deploying.**
+
+| Item | Idle cost | Notes |
+|---|---|---|
+| Lambda, SQS, DynamoDB requests, EventBridge | ~$0 | Charged per request; a demo's volume is tiny |
+| S3 + DynamoDB storage | Cents | Files expire after 30 days |
+| CloudWatch custom metrics (~11 from EMF) | ~$3/month | Likely the largest item; the free tier covers 10 metrics |
+| CloudWatch alarms (6) | ~$0.60/month | |
+| **Rough total** | **~$4/month** | Destroy after testing to reach $0 |
+
+### Deploy and tear down (when an AWS account is available)
+
+```bash
+cd terraform
+terraform init
+terraform plan -out tfplan        # review every resource first
+terraform apply tfplan
+terraform destroy                 # removes everything, including the bucket's files
+```
+
 ## Run it locally
 
 **Prerequisite:** Python 3.14. No AWS account is needed: tests use moto's simulated AWS.
@@ -121,6 +206,7 @@ src/compliance/
   handler.py        Scheduled Lambda entry point (plans only, never applies)
 scripts/
   demo_compliance.py  End-to-end demo against a simulated account
+terraform/          AWS infrastructure (validated, not deployed)
 tests/
   sqs_driver.py     Stand-in for Lambda's SQS polling, which moto does not provide
   test_records.py   Validation unit tests

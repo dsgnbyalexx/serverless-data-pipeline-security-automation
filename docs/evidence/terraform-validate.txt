@@ -1,0 +1,13 @@
+# Terraform static validation of terraform/ (nothing deployed, no AWS credentials). 2026-10-24T00:45Z
+
+$ terraform version
+Terraform v1.16.6
+on windows_amd64
++ provider registry.terraform.io/hashicorp/archive v2.8.1
+
+$ terraform fmt -check -recursive
+exit code: 0
+
+$ terraform validate
+Success! The configuration is valid.
+

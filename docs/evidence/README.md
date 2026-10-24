@@ -83,6 +83,22 @@ on a simulated account: detect 4 findings → dry run plans 2 fixes → `--apply
 
 ---
 
+## 2026-10-24: Terraform static validation (nothing deployed)
+
+| Check | Tool | Result | Raw output |
+|---|---|---|---|
+| Formatting | `terraform fmt -check -recursive` | Pass | [terraform-validate.txt](terraform-validate.txt) |
+| Configuration validity | `terraform validate` (Terraform 1.16.6, AWS provider 6.70.0, archive 2.8.1) | `Success! The configuration is valid.` | [terraform-validate.txt](terraform-validate.txt) |
+| IaC security | Trivy 0.76.1 | 1 HIGH accepted with a reason, 6 LOW accepted or future; gate passes | [trivy-scan.txt](trivy-scan.txt) |
+| Lambda packaging | Built a zip with the same layout as `archive_file` and imported both handlers from it | `pipeline.handler.lambda_handler` and `compliance.handler.lambda_handler` load from the zip | (command output in this log) |
+| Provider lock | `.terraform.lock.hcl` | Checksums for linux_amd64 and windows_amd64 | — |
+
+**What this does NOT prove:** that AWS accepts every value at apply time, that IAM
+permissions are sufficient at runtime, or anything about cost or latency. Those need a
+deployment.
+
+---
+
 ### What these tests do NOT prove
 
 - moto does not run Lambda's SQS event source mapping. [`tests/sqs_driver.py`](../../tests/sqs_driver.py)
