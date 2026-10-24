@@ -1,9 +1,23 @@
-# pytest 9.1.1, Python 3.14.7, moto 5.2.4 (simulated AWS). 2026-10-24T00:18Z
+# pytest 9.1.1, Python 3.14.7, moto 5.2.4 (simulated AWS). 2026-10-24T00:35Z
 # Command: python -m pytest -v --cov --cov-report=term-missing
 
 ============================= test session starts =============================
-collecting ... collected 35 items
+collecting ... collected 49 items
 
+tests/test_compliance.py::test_scan_finds_every_misconfiguration_and_nothing_else PASSED
+tests/test_compliance.py::test_safe_resources_are_not_flagged PASSED
+tests/test_compliance.py::test_findings_are_sorted_most_severe_first PASSED
+tests/test_compliance.py::test_only_active_keys_older_than_90_days_are_flagged[30-expected0] PASSED
+tests/test_compliance.py::test_only_active_keys_older_than_90_days_are_flagged[91-expected1] PASSED
+tests/test_compliance.py::test_a_failing_check_is_reported_and_others_still_run PASSED
+tests/test_compliance.py::test_dry_run_plans_but_changes_nothing PASSED
+tests/test_compliance.py::test_apply_fixes_only_opted_in_resources PASSED
+tests/test_compliance.py::test_revoke_removes_only_the_internet_range PASSED
+tests/test_compliance.py::test_rule_filter_limits_what_is_touched PASSED
+tests/test_compliance.py::test_failed_fix_is_reported_not_raised PASSED
+tests/test_compliance.py::test_scheduled_lambda_never_applies_changes PASSED
+tests/test_compliance.py::test_cli_scan_exit_codes_and_json PASSED
+tests/test_compliance.py::test_cli_remediate_is_a_dry_run_unless_apply_is_given PASSED
 tests/test_pipeline.py::test_valid_file_flows_end_to_end PASSED
 tests/test_pipeline.py::test_bad_rows_are_skipped_but_good_rows_are_stored PASSED
 tests/test_pipeline.py::test_duplicate_delivery_is_idempotent PASSED
@@ -45,11 +59,19 @@ _______________ coverage: platform win32, python 3.14.7-final-0 _______________
 
 Name                            Stmts   Miss Branch BrPart  Cover   Missing
 ---------------------------------------------------------------------------
+src\compliance\__init__.py          0      0      0      0   100%
+src\compliance\__main__.py          3      3      0      0     0%   1-5
+src\compliance\checks.py           88      3     38      4    94%   37, 59->57, 72, 147
+src\compliance\cli.py              47      4     16      4    87%   22, 27, 67, 83
+src\compliance\handler.py          14      1      4      1    89%   21
+src\compliance\models.py           19      0      0      0   100%
+src\compliance\remediation.py      51      1     14      1    97%   31
+src\compliance\scanner.py          22      0      2      0   100%
 src\pipeline\__init__.py            0      0      0      0   100%
 src\pipeline\handler.py            73      1     22      1    98%   95
 src\pipeline\observability.py      11      0      0      0   100%
 src\pipeline\records.py            83      0     24      0   100%
 src\pipeline\store.py              18      0      4      0   100%
 ---------------------------------------------------------------------------
-TOTAL                             185      1     50      1    99%
-============================= 35 passed in 6.27s ==============================
+TOTAL                             429     13    124     11    96%
+============================= 49 passed in 31.20s =============================

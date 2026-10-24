@@ -14,8 +14,9 @@
 |---|---|---|
 | Lambda processing logic: validation, partial batch failures, idempotent writes | 🧪 Implemented, tested against simulated AWS | [evidence log](docs/evidence/README.md) |
 | Retries and dead-letter queue (3 attempts, then DLQ) | 🧪 Tested against simulated AWS | [failure handling](docs/evidence/README.md#failure-handling-demonstrated-by-the-tests) |
-| 35 automated tests, 99% line coverage, lint clean | ✅ Passing locally | [pipeline-tests.txt](docs/evidence/pipeline-tests.txt) |
-| Compliance scanner (detect + dry-run remediation) | ⏳ Planned | — |
+| Compliance scanner: 6 rules across S3, EC2 and IAM | 🧪 Implemented, tested against simulated AWS | [demo output](docs/evidence/compliance-demo.txt) |
+| Guarded remediation: dry run by default, opt-in tags, allowlist | 🧪 Tested, including a negative-control experiment | [evidence log](docs/evidence/README.md#2026-10-24-compliance-scanner) |
+| 49 automated tests, 96% line coverage, lint clean | ✅ Passing locally | [tests.txt](docs/evidence/tests.txt) |
 | Terraform (S3, SQS, Lambda, DynamoDB, alarms), validated but not deployed | ⏳ Planned | — |
 | GitHub Actions CI | ⏳ Planned | — |
 | Real AWS deployment + AWS Config rules | 🗺️ Future | — |
@@ -54,6 +55,44 @@ resources themselves are not deployed yet.
 | Bad **file** | Not a CSV, missing columns, too large | File marked `REJECTED` once; **not retried**, because retrying cannot fix it |
 | **Transient** failure | DynamoDB throttled or unavailable | Message reported as failed; SQS retries it; after 3 attempts it goes to the **DLQ** for investigation and replay |
 
+## Compliance scanner
+
+Most cloud security incidents come from **misconfiguration**: a public bucket, an
+internet-facing SSH port, a key that never expires. The scanner reads account settings
+(read-only), reports findings, and can fix a small set of them under strict safeguards.
+
+| Rule | Detects | Severity | Automatic fix |
+|---|---|---|---|
+| S3-001 | Bucket does not fully block public access | HIGH | ✅ Enable all four Block Public Access settings |
+| S3-002 | Bucket policy allows non-HTTPS requests | MEDIUM | Manual: editing policies can break clients |
+| S3-003 | Versioning disabled | LOW | Manual: changes storage cost |
+| EC2-001 | SSH (22) or RDP (3389) open to `0.0.0.0/0` or `::/0` | HIGH | ✅ Revoke only the internet-wide range |
+| EC2-002 | All traffic open to the internet | CRITICAL | ✅ Revoke only the internet-wide range |
+| IAM-001 | Active access key older than 90 days | MEDIUM | Manual: rotation needs the key owner |
+
+### Safety model
+
+A resource is changed only when **all** of these hold:
+
+1. The rule has an automatic fix (the allowlist above).
+2. `--apply` is passed. **The default is a dry run** that only reports what would change.
+3. The resource is tagged `compliance:auto-remediate=true`, so owners opt in per resource.
+4. It is run by a person through the CLI. The scheduled Lambda entry point can only plan.
+
+Every outcome (`PLANNED`, `APPLIED`, `SKIPPED` with a reason, `FAILED`) is logged as JSON.
+
+```bash
+python -m compliance scan                       # read-only; exit 1 if HIGH+ findings
+python -m compliance scan --format json --fail-on CRITICAL
+python -m compliance remediate                  # dry run: shows the plan
+python -m compliance remediate --apply          # changes opted-in resources only
+python scripts/demo_compliance.py               # full demo on a simulated account
+```
+
+The CLI needs `PYTHONPATH=src` when run from the repository root (`set PYTHONPATH=src` on
+Windows cmd, `$env:PYTHONPATH="src"` in PowerShell). Against a real account it uses your
+normal AWS CLI credentials and needs read-only permissions for `scan`.
+
 ## Run it locally
 
 **Prerequisite:** Python 3.14. No AWS account is needed: tests use moto's simulated AWS.
@@ -62,7 +101,7 @@ resources themselves are not deployed yet.
 python -m venv .venv
 .venv\Scripts\activate          # macOS/Linux: source .venv/bin/activate
 pip install -r requirements-dev.txt
-pytest --cov                    # 35 tests
+pytest --cov                    # 49 tests
 ruff check . && ruff format --check .
 ```
 
@@ -74,10 +113,19 @@ src/pipeline/
   records.py        CSV parsing and row validation (pure functions)
   store.py          Idempotent DynamoDB writes and file summaries
   observability.py  JSON logs and CloudWatch Embedded Metric Format
+src/compliance/
+  checks.py         Read-only detection rules (S3, EC2, IAM)
+  scanner.py        Runs all checks; one failing check never stops the others
+  remediation.py    Allowlisted fixes behind dry-run, --apply and opt-in tag gates
+  cli.py            `python -m compliance scan | remediate [--apply]`
+  handler.py        Scheduled Lambda entry point (plans only, never applies)
+scripts/
+  demo_compliance.py  End-to-end demo against a simulated account
 tests/
   sqs_driver.py     Stand-in for Lambda's SQS polling, which moto does not provide
   test_records.py   Validation unit tests
   test_pipeline.py  End-to-end tests against simulated S3, SQS and DynamoDB
+  test_compliance.py  Scanner and remediation tests on a misconfigured simulated account
 docs/evidence/      Real test output and experiment results
 ```
 
@@ -88,6 +136,10 @@ docs/evidence/      Real test output and experiment results
   but slower for very large files.
 - When the same `order_id` arrives in a later file, the first version wins. Updates to
   existing orders are not supported.
+- The scanner covers 6 rules in one region per run. S3 account-level Block Public Access,
+  CloudTrail, root-account checks, and multi-account scanning are not implemented.
+- If one S3 bucket's settings cannot be read (e.g. `AccessDenied`), the whole S3 check is
+  reported as an error, rather than skipping just that bucket.
 
 ## License
 

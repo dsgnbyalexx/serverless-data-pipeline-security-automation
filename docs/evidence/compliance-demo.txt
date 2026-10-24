@@ -1,0 +1,35 @@
+# Output of: python scripts/demo_compliance.py   (simulated AWS account via moto; JSON log lines omitted)
+
+$ python -m compliance scan    # 1. detect
+[HIGH    ] EC2-001  sg-b3783f451a5a24707
+           Security group exposes remote administration to the internet: SSH (tcp 22-22) open to 0.0.0.0/0
+[HIGH    ] S3-001   demo-public-reports
+           S3 bucket does not fully block public access: Block Public Access settings off: BlockPublicAcls, IgnorePublicAcls, BlockPublicPolicy, RestrictPublicBuckets
+[MEDIUM  ] S3-002   demo-public-reports
+           S3 bucket allows unencrypted (HTTP) requests: No bucket policy statement denies requests where aws:SecureTransport is false.
+[LOW     ] S3-003   demo-public-reports
+           S3 bucket versioning is not enabled: Versioning status: never enabled
+(exit code 1)
+
+$ python -m compliance remediate    # 2. plan fixes, change nothing
+Remediation mode: DRY RUN (no changes will be made)
+[PLANNED ] EC2-001  sg-b3783f451a5a24707: Revoke internet-wide ingress on the exposed admin port (dry run: rerun with --apply)
+[PLANNED ] S3-001   demo-public-reports: Enable all four S3 Block Public Access settings (dry run: rerun with --apply)
+[SKIPPED ] S3-002   demo-public-reports: none (no automatic fix; needs manual review)
+[SKIPPED ] S3-003   demo-public-reports: none (no automatic fix; needs manual review)
+(exit code 0)
+
+$ python -m compliance remediate --apply    # 3. apply fixes to opted-in resources
+Remediation mode: APPLY
+[APPLIED ] EC2-001  sg-b3783f451a5a24707: Revoke internet-wide ingress on the exposed admin port
+[APPLIED ] S3-001   demo-public-reports: Enable all four S3 Block Public Access settings
+[SKIPPED ] S3-002   demo-public-reports: none (no automatic fix; needs manual review)
+[SKIPPED ] S3-003   demo-public-reports: none (no automatic fix; needs manual review)
+(exit code 0)
+
+$ python -m compliance scan    # 4. re-scan
+[MEDIUM  ] S3-002   demo-public-reports
+           S3 bucket allows unencrypted (HTTP) requests: No bucket policy statement denies requests where aws:SecureTransport is false.
+[LOW     ] S3-003   demo-public-reports
+           S3 bucket versioning is not enabled: Versioning status: never enabled
+(exit code 0)
