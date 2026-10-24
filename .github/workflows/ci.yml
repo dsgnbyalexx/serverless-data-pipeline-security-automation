@@ -1,0 +1,87 @@
+# Continuous Integration: runs on every push to main and on every pull request.
+# Nothing here touches AWS. Tests use moto's simulated AWS; Terraform is only validated.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TRIVY_IMAGE: aquasec/trivy:0.76.1
+
+jobs:
+  python:
+    name: Python · lint, tests & compliance demo
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      # Belt and braces: no step can reach a real AWS account.
+      AWS_ACCESS_KEY_ID: testing
+      AWS_SECRET_ACCESS_KEY: testing
+      AWS_DEFAULT_REGION: us-east-1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14" # matches the Lambda runtime in terraform/variables.tf
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install pinned dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Check formatting
+        run: ruff format --check .
+
+      - name: Tests with coverage (simulated AWS)
+        run: pytest --cov --cov-report=term-missing
+
+      - name: Compliance demo (detect, dry run, apply, re-scan)
+        run: python scripts/demo_compliance.py
+
+  terraform:
+    name: Terraform · fmt, validate & security scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.6
+          terraform_wrapper: false
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive
+
+      - name: Init (no backend, providers must match the lock file)
+        run: terraform init -backend=false -input=false -lockfile=readonly
+
+      - name: Validate
+        run: terraform validate
+
+      # Fails on HIGH/CRITICAL misconfigurations not explicitly accepted in the code.
+      - name: Scan Terraform with Trivy
+        run: >
+          docker run --rm -v "${GITHUB_WORKSPACE}/terraform:/src:ro" "$TRIVY_IMAGE"
+          config --severity HIGH,CRITICAL --exit-code 1 --skip-dirs /src/.terraform /src
