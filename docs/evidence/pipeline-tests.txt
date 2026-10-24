@@ -1,0 +1,55 @@
+# pytest 9.1.1, Python 3.14.7, moto 5.2.4 (simulated AWS). 2026-10-24T00:18Z
+# Command: python -m pytest -v --cov --cov-report=term-missing
+
+============================= test session starts =============================
+collecting ... collected 35 items
+
+tests/test_pipeline.py::test_valid_file_flows_end_to_end PASSED
+tests/test_pipeline.py::test_bad_rows_are_skipped_but_good_rows_are_stored PASSED
+tests/test_pipeline.py::test_duplicate_delivery_is_idempotent PASSED
+tests/test_pipeline.py::test_unusable_file_is_rejected_without_retrying PASSED
+tests/test_pipeline.py::test_transient_failure_is_retried_then_moved_to_dead_letter_queue PASSED
+tests/test_pipeline.py::test_one_failing_message_does_not_fail_the_whole_batch PASSED
+tests/test_pipeline.py::test_url_encoded_keys_are_decoded PASSED
+tests/test_pipeline.py::test_s3_test_event_is_ignored PASSED
+tests/test_pipeline.py::test_deleted_object_is_skipped_not_retried PASSED
+tests/test_pipeline.py::test_oversized_file_is_rejected PASSED
+tests/test_pipeline.py::test_metrics_are_emitted_in_cloudwatch_embedded_format PASSED
+tests/test_records.py::test_valid_row_is_normalised PASSED
+tests/test_records.py::test_timestamps_are_converted_to_utc PASSED
+tests/test_records.py::test_invalid_values_are_rejected[order_id--order_id] PASSED
+tests/test_records.py::test_invalid_values_are_rejected[order_id-bad id with spaces-order_id] PASSED
+tests/test_records.py::test_invalid_values_are_rejected[order_id-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-order_id] PASSED
+tests/test_records.py::test_invalid_values_are_rejected[customer_email-not-an-email-customer_email] PASSED
+tests/test_records.py::test_invalid_values_are_rejected[amount-abc-number] PASSED
+tests/test_records.py::test_invalid_values_are_rejected[amount-0-greater than 0] PASSED
+tests/test_records.py::test_invalid_values_are_rejected[amount--5-greater than 0] PASSED
+tests/test_records.py::test_invalid_values_are_rejected[amount-1000000.01-at most] PASSED
+tests/test_records.py::test_invalid_values_are_rejected[amount-NaN-greater than 0] PASSED
+tests/test_records.py::test_invalid_values_are_rejected[amount-Infinity-greater than 0] PASSED
+tests/test_records.py::test_invalid_values_are_rejected[amount-10.999-2 decimal places] PASSED
+tests/test_records.py::test_invalid_values_are_rejected[currency-US-3-letter] PASSED
+tests/test_records.py::test_invalid_values_are_rejected[currency-U5D-3-letter] PASSED
+tests/test_records.py::test_invalid_values_are_rejected[created_at-yesterday-ISO 8601] PASSED
+tests/test_records.py::test_invalid_values_are_rejected[created_at-2026-10-24T09:30:00-timezone] PASSED
+tests/test_records.py::test_all_errors_in_a_row_are_reported_together PASSED
+tests/test_records.py::test_file_with_good_and_bad_rows PASSED
+tests/test_records.py::test_duplicate_order_id_within_a_file_keeps_the_first PASSED
+tests/test_records.py::test_excel_byte_order_mark_and_extra_columns_are_handled PASSED
+tests/test_records.py::test_missing_columns_reject_the_whole_file PASSED
+tests/test_records.py::test_non_utf8_file_is_rejected PASSED
+tests/test_records.py::test_too_many_rows_rejects_the_file PASSED
+
+=============================== tests coverage ================================
+_______________ coverage: platform win32, python 3.14.7-final-0 _______________
+
+Name                            Stmts   Miss Branch BrPart  Cover   Missing
+---------------------------------------------------------------------------
+src\pipeline\__init__.py            0      0      0      0   100%
+src\pipeline\handler.py            73      1     22      1    98%   95
+src\pipeline\observability.py      11      0      0      0   100%
+src\pipeline\records.py            83      0     24      0   100%
+src\pipeline\store.py              18      0      4      0   100%
+---------------------------------------------------------------------------
+TOTAL                             185      1     50      1    99%
+============================= 35 passed in 6.27s ==============================

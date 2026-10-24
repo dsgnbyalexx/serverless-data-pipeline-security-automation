@@ -1,0 +1,28 @@
+[project]
+name = "serverless-data-pipeline-security-automation"
+version = "0.1.0"
+description = "Event-driven S3 -> SQS -> Lambda -> DynamoDB pipeline and an AWS compliance scanner"
+requires-python = ">=3.14"
+license = "MIT"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# E/F: errors, I: import order, B: likely bugs, UP: modern syntax, S: security, SIM: simplifications
+select = ["E", "F", "I", "B", "UP", "S", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# assert is how pytest checks results; fake credentials in tests are not secrets
+"tests/**" = ["S101", "S105", "S106"]
